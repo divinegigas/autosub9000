@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=AutoSub9000
+GenericName=Subtitle Generator
+Comment=Create, translate and embed subtitles offline with Whisper
+Exec=autosub9000 %F
+Icon=autosub9000
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;
+MimeType=video/x-matroska;video/mp4;video/x-msvideo;video/quicktime;video/webm;video/x-m4v;
+Keywords=subtitles;whisper;transcribe;translate;captions;srt;
+StartupWMClass=autosub9000

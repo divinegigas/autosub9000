@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22222a"/><stop offset="1" stop-color="#0b0b0e"/>
+    </linearGradient>
+    <linearGradient id="blade" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#8e1121"/><stop offset="0.55" stop-color="#dc2a43"/><stop offset="1" stop-color="#ff7a8a"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.45" r="0.55">
+      <stop offset="0" stop-color="#dc2a43" stop-opacity="0.35"/><stop offset="1" stop-color="#dc2a43" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#bg)"/>
+  <rect x="8" y="8" width="240" height="240" rx="52" fill="url(#glow)"/>
+  <rect x="9.5" y="9.5" width="237" height="237" rx="50.5" fill="none" stroke="#3a3a47" stroke-width="3"/>
+  <!-- screen -->
+  <rect x="44" y="52" width="168" height="112" rx="16" fill="#16161b" stroke="#3a3a47" stroke-width="4"/>
+  <!-- subtitle bars -->
+  <rect x="62" y="186" width="132" height="16" rx="8" fill="#eeeef1"/>
+  <rect x="84" y="210" width="88" height="14" rx="7" fill="#a3a3b0"/>
+  <!-- crimson slash -->
+  <path d="M58 170 L186 40 L204 50 L82 182 Z" fill="url(#blade)"/>
+  <path d="M186 40 L204 50 L196 60 Z" fill="#ffd0d6"/>
+</svg>
