@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+/vendor/
+/build/
+/dist/
+*.AppImage
+.pytest_cache/
