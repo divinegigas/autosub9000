@@ -1,0 +1,17 @@
+#!/bin/sh
+# AutoSub9000 AppImage entry point.
+# Everything runs from inside the AppImage. The GPU driver (Mesa RADV via the
+# system's libvulkan.so.1) is deliberately NOT bundled and comes from the host.
+HERE="$(dirname "$(readlink -f "$0")")"
+
+export AUTOSUB_BIN_DIR="$HERE/usr/bin"
+export AUTOSUB_ASSETS_DIR="$HERE/usr/share/autosub9000/assets"
+export AUTOSUB_FONTS_DIR="$HERE/usr/share/autosub9000/assets/fonts"
+export AUTOSUB_APPDIR="$HERE"
+export PYTHONDONTWRITEBYTECODE=1
+export PYTHONNOUSERSITE=1
+# Qt: never look online, never pick up host Python/Qt plugins.
+unset PYTHONPATH PYTHONHOME QT_PLUGIN_PATH QML2_IMPORT_PATH
+export QT_LOGGING_RULES="${QT_LOGGING_RULES:-qt.multimedia.*=false;qt.qpa.wayland.*=false}"
+
+exec "$HERE/usr/python/bin/python3" -I -m autosub "$@"

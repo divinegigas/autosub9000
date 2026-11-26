@@ -111,8 +111,9 @@ def embed(info: MediaInfo, tracks: list[EmbedTrack], out_path: Path, *,
         s = existing_subs + i
         cmd += [f"-metadata:s:s:{s}", f"language={iso639_2(t.track.language)}",
                 f"-metadata:s:s:{s}", f"title={t.track.title}",
-                f"-metadata:s:s:{s}", f"handler_name={t.track.title}",
                 f"-disposition:s:{s}", "default" if i == default_idx else "0"]
+        if fmt == "mp4":  # MP4 players read the track name from the handler
+            cmd += [f"-metadata:s:s:{s}", f"handler_name={t.track.title}"]
 
     cmd += ["-progress", "pipe:1", "-nostats", "-f", "matroska" if fmt == "mkv" else "mp4",
             str(tmp_out)]

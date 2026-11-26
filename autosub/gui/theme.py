@@ -7,19 +7,14 @@ body text is always a plain sans at comfortable size and contrast.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
-from pathlib import Path
 
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QPalette
 from PySide6.QtWidgets import QApplication
 
+from ..gui_paths import assets_dir
 
-def assets_dir() -> Path:
-    env = os.environ.get("AUTOSUB_ASSETS_DIR")
-    if env and Path(env).is_dir():
-        return Path(env)
-    return Path(__file__).resolve().parents[2] / "assets"
+
 
 
 @dataclass(frozen=True)

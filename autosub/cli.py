@@ -47,6 +47,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--download-model", nargs="+", metavar="NAME", help="download model(s) and exit")
     p.add_argument("--list-languages", action="store_true", help="list language codes and exit")
     p.add_argument("--check-gpu", action="store_true", help="report Vulkan/GPU detection and exit")
+    p.add_argument("--install-desktop", action="store_true",
+                   help="add AutoSub9000 to the application menu (for the AppImage)")
+    p.add_argument("--uninstall-desktop", action="store_true", help="remove the application menu entry")
     p.add_argument("--gui", action="store_true", help="start the graphical interface")
     p.add_argument("--version", action="version", version=f"{APP_NAME} {__version__}")
     return p
@@ -145,6 +148,38 @@ def cmd_check_gpu() -> int:
     return 0
 
 
+def cmd_desktop(install: bool) -> int:
+    import os
+    import shutil
+    from .gui_paths import assets_dir
+    apps = Path.home() / ".local/share/applications"
+    icons = Path.home() / ".local/share/icons/hicolor"
+    desktop = apps / "autosub9000.desktop"
+    icon_png = icons / "256x256/apps/autosub9000.png"
+    icon_svg = icons / "scalable/apps/autosub9000.svg"
+    if not install:
+        for f in (desktop, icon_png, icon_svg):
+            f.unlink(missing_ok=True)
+        print("Removed the menu entry.")
+        return 0
+    exe = os.environ.get("APPIMAGE")
+    if not exe:
+        print("error: --install-desktop is meant to be run from the AppImage.", file=sys.stderr)
+        return 1
+    apps.mkdir(parents=True, exist_ok=True)
+    src = (assets_dir() / "autosub9000.desktop").read_text(encoding="utf-8")
+    src = src.replace("Exec=autosub9000 %F", f'Exec="{exe}" %F')
+    src += "TryExec=" + exe + "\n"
+    desktop.write_text(src, encoding="utf-8")
+    for s_, d in ((assets_dir() / "autosub9000.png", icon_png), (assets_dir() / "autosub9000.svg", icon_svg)):
+        if s_.exists():
+            d.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(s_, d)
+    print(f"Installed {desktop}")
+    print("AutoSub9000 is now in your application menu. If you move the AppImage, run this again.")
+    return 0
+
+
 def run_jobs(args) -> int:
     settings = config.Settings.load()
     tmodel = args.model or settings.transcribe_model or models.DEFAULT_TRANSCRIBE
@@ -214,6 +249,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_download(args.download_model)
         if args.check_gpu:
             return cmd_check_gpu()
+        if args.install_desktop or args.uninstall_desktop:
+            return cmd_desktop(args.install_desktop)
         if not args.input:
             build_parser().print_help()
             return 2
