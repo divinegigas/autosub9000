@@ -142,3 +142,60 @@ def clean(segments: list[Segment]) -> list[Segment]:
         if a.end > b.start:
             a.end = max(a.start + 0.05, b.start)
     return out
+
+
+# ---------------------------------------------------------------- loop detection
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^\w]+", " ", text.lower()).strip()
+
+
+def find_loops(segments: list[Segment], min_run: int = 4, min_span: float = 15.0) -> list[tuple[int, int]]:
+    """Find runs of consecutive lines with the same text – Whisper's classic
+    "stuck in a loop" failure. Returns inclusive (first, last) index pairs.
+
+    A run counts when it has at least `min_run` lines and covers at least
+    `min_span` seconds, or when it is very long (2 × min_run lines), so real
+    dialogue like "No. No. No." is left alone.
+    Lines that repeat one phrase over and over within themselves
+    ("go go go go go go go go…") are reported as runs of one."""
+    loops: list[tuple[int, int]] = []
+    i, n = 0, len(segments)
+    while i < n:
+        key = _norm(segments[i].text)
+        j = i
+        while j + 1 < n and key and _norm(segments[j + 1].text) == key:
+            j += 1
+        count = j - i + 1
+        span = segments[j].end - segments[i].start
+        if key and count >= min_run and (span >= min_span or count >= 2 * min_run):
+            loops.append((i, j))
+        elif _self_repeating(segments[i].text):
+            loops.append((i, i))
+        i = j + 1
+    return loops
+
+
+def _self_repeating(text: str) -> bool:
+    words = _norm(text).split()
+    if len(words) < 12:
+        return False
+    for size in range(1, 5):
+        chunks = [" ".join(words[k:k + size]) for k in range(0, len(words) - size + 1, size)]
+        if chunks and max(chunks.count(c) for c in set(chunks)) * size >= 0.8 * len(words):
+            return True
+    return False
+
+
+def collapse_loops(segments: list[Segment], loops: list[tuple[int, int]]) -> list[Segment]:
+    """Last-resort cleanup: keep the first line of each run (with its own
+    timing) and drop the copies; trim self-repeating lines."""
+    drop: set[int] = set()
+    out = [s.copy() for s in segments]
+    for a, b in loops:
+        if a == b:
+            words = out[a].text.split()
+            out[a].text = " ".join(words[:8]) + "…"
+        else:
+            drop.update(range(a + 1, b + 1))
+    return [s for k, s in enumerate(out) if k not in drop]

@@ -48,6 +48,14 @@ class WhisperOptions:
     device: str = "auto"  # auto | gpu | cpu
     threads: int = 0  # 0 = auto
     beam_size: int = 5
+    # Text context carried from one 30 s window to the next. Whisper's default
+    # (-1 = up to 224 tokens) lets one hallucinated line get copied forward
+    # forever ("every line is the same for the rest of the film"). 0 decodes
+    # each window independently, which prevents those loops.
+    max_context: int = 0
+    entropy_thold: float | None = None  # higher = stricter repetition check
+    offset_ms: int = 0       # transcribe only part of the audio...
+    duration_ms: int = 0     # ...(0 = to the end)
     extra_args: list[str] = field(default_factory=list)
 
 
@@ -94,6 +102,13 @@ def _run_once(wav, opts, use_gpu, cancel, progress, on_segment, log, work_dir) -
            "-t", str(opts.threads or default_threads()),
            "-bs", str(opts.beam_size),
            "-oj", "-of", str(prefix), "-pp"]
+    cmd += ["-mc", str(opts.max_context)]
+    if opts.entropy_thold is not None:
+        cmd += ["-et", f"{opts.entropy_thold:.2f}"]
+    if opts.offset_ms:
+        cmd += ["-ot", str(int(opts.offset_ms))]
+    if opts.duration_ms:
+        cmd += ["-d", str(int(opts.duration_ms))]
     if opts.translate:
         cmd.append("-tr")
     if not use_gpu:

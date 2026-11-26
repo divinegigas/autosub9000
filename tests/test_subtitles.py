@@ -42,3 +42,21 @@ def test_language_tags():
     assert iso639_2("ja") == "jpn" and iso639_2("en") == "eng" and iso639_2("de") == "ger"
     assert iso639_2(None) == "und" and iso639_2("xx") == "und"
     assert name_of("ja") == "Japanese"
+
+
+def test_find_loops_detects_stuck_whisper():
+    from autosub.core.subtitles import collapse_loops, find_loops
+    good = [Segment(i * 3, i * 3 + 2, f"line {i}") for i in range(5)]
+    stuck = [Segment(15 + i * 3, 17 + i * 3, "Thank you for watching!") for i in range(20)]
+    segs = good + stuck + [Segment(80, 82, "the end")]
+    assert find_loops(segs) == [(5, 24)]
+    out = collapse_loops(segs, find_loops(segs))
+    assert [s.text for s in out].count("Thank you for watching!") == 1 and len(out) == 7
+
+
+def test_find_loops_leaves_real_dialogue_alone():
+    from autosub.core.subtitles import find_loops
+    segs = [Segment(0, 1, "No."), Segment(1, 2, "No!"), Segment(2, 3, "No."), Segment(3, 4, "Okay")]
+    assert find_loops(segs) == []
+    assert find_loops([Segment(0, 9, "go " * 20)]) == [(0, 0)]
+    assert find_loops([Segment(0, 9, "I said go, go, go and then we ran to the car fast")]) == []

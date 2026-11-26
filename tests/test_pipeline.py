@@ -69,3 +69,18 @@ def test_cancel_cleans_up(tmp_path, speech_video):
         Pipeline(JobOptions(input=speech_video, transcribe_model=_model(), output_dir=tmp_path),
                  CancelOnTranscribe(), tok).run()
     assert not [p for p in os.listdir(tmp_path) if "subbed" in p or "partial" in p]
+
+
+def test_repair_replaces_looping_stretch(tmp_path, speech_video):
+    """Simulate Whisper getting stuck and check the stretch is re-transcribed."""
+    from autosub.core.media import extract_audio, probe
+    from autosub.core.subtitles import Segment, find_loops
+    from autosub.core.transcribe import WhisperOptions
+    wav = extract_audio(probe(speech_video), tmp_path / "a.wav")
+    looped = [Segment(i * 0.5, i * 0.5 + 0.5, "Subtitles by the community") for i in range(10)]
+    pipe = Pipeline(JobOptions(input=speech_video, transcribe_model=_model(), device="cpu"), Rec())
+    pipe._current = "transcribe"
+    opts = WhisperOptions(model_path=models.path_for(_model()), device="cpu")
+    fixed = pipe._repair_loops(wav, opts, looped, "es", tmp_path)
+    assert fixed and not find_loops(fixed)
+    assert "Subtitles by the community" not in [s.text for s in fixed]

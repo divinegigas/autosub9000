@@ -6,7 +6,7 @@ from __future__ import annotations
 import shutil
 import tempfile
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Callable
 
@@ -17,13 +17,15 @@ from .languages import name_of
 from .media import MediaInfo, extract_audio, probe
 from .mux import EmbedTrack, bundled_fonts_dir, embed, output_path_for, save_sidecar_srts
 from .process import CancelToken
-from .subtitles import Segment, SubtitleTrack, write_srt
+from .errors import Cancelled
+from .subtitles import Segment, SubtitleTrack, clean, collapse_loops, find_loops, format_ts, write_srt
 from .transcribe import WhisperOptions, run_whisper
 
 STAGES = {
     "extract": "Extracting audio",
     "transcribe": "Transcribing",
     "translate": "Translating",
+    "repair": "Fixing repeated lines",
     "review": "Reviewing",
     "embed": "Embedding",
     "done": "Done",
@@ -173,7 +175,49 @@ class Pipeline:
                           log=self.r.log, work_dir=work)
         self.r.device(res.device)
         self.r.log(f"--- whisper finished on {res.device}: {len(res.segments)} lines, language={res.language}")
+        res.segments = self._repair_loops(wav, opts, res.segments, res.language, work)
         return res
+
+    def _repair_loops(self, wav: Path, opts: WhisperOptions, segments: list[Segment],
+                      language: str, work: Path) -> list[Segment]:
+        """Safety net for Whisper repetition loops: re-transcribe each looping
+        stretch on its own with stricter settings; if it still loops, keep only
+        the first copy of the repeated line."""
+        loops = find_loops(segments)
+        if not loops:
+            return segments
+        key, label = self._current, STAGES[self._current]
+        self.r.stage("repair", STAGES["repair"])
+        self.r.warning(f"Whisper got stuck repeating itself in {len(loops)} place(s) – re-transcribing those parts.")
+        total_end = segments[-1].end
+        # Work from the end so indexes stay valid while splicing.
+        for a, b in reversed(loops):
+            self.cancel.check()
+            start = max(segments[a - 1].end if a > 0 else 0.0, segments[a].start - 1.0, 0.0)
+            end = min(segments[b + 1].start if b + 1 < len(segments) else total_end + 1.0,
+                      segments[b].end + 1.0)
+            self.r.log(f"--- repairing {format_ts(start)} → {format_ts(end)} ({b - a + 1} repeated lines)")
+            retry = replace(opts, language=language if language not in ("", "und") else opts.language,
+                            max_context=0, entropy_thold=2.8,
+                            offset_ms=int(start * 1000), duration_ms=int((end - start) * 1000))
+            try:
+                fixed = run_whisper(wav, retry, cancel=self.cancel, log=self.r.log, work_dir=work).segments
+            except Cancelled:
+                raise
+            except AutoSubError as e:
+                self.r.log(f"!! repair pass failed: {e.message}")
+                fixed = []
+            fixed = [s for s in fixed if s.start < end and s.end > start]
+            if fixed and not find_loops(fixed):
+                self.r.log(f"    repaired: {len(fixed)} new lines")
+            else:
+                self.r.log("    still repeating – keeping only the first copy")
+                fixed = collapse_loops(segments[a:b + 1], [(0, b - a)])
+            before = [s for s in segments[:a] if s.end <= start + 0.5]
+            after = [s for s in segments[b + 1:]]
+            segments = before + fixed + after
+        self.r.stage(key, label)
+        return clean(segments)
 
     def _run(self, info: MediaInfo, work: Path, tr_model: str, warnings: list[str], t0: float) -> JobResult:
         o = self.o

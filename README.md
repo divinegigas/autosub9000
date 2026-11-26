@@ -168,6 +168,20 @@ code path (AVX2, AVX-512, …) for your processor at runtime.
 - No window on Wayland: try X11 with `QT_QPA_PLATFORM=xcb ./AutoSub9000-x86_64.AppImage`.
   That needs `xcb-util-cursor`: `sudo dnf install xcb-util-cursor`.
 
+### The same line repeats for the rest of the film
+
+This is a known Whisper failure. Normally each 30-second window is decoded with the
+previous text as context, so one bad line (often in music or silence) can be copied
+forward indefinitely. AutoSub9000 prevents it in two ways:
+
+1. Each window is decoded independently (`--max-context 0`), so a mistake can't
+   spread.
+2. After transcribing, it looks for runs of identical lines. It re-transcribes each run
+   on its own with a stricter repetition check. If that still repeats, it keeps only the
+   first copy. You'll see *"Fixing repeated lines"* and a warning when this happens.
+
+Files processed by version 1.0.0 should be run again.
+
 ### Other problems
 
 - **"No speech was found"**: the file may have several audio tracks. Try
