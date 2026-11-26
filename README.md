@@ -23,8 +23,8 @@ the video. Your original file is never touched.
 - Progress is shown with stages, a percentage, elapsed time and ETA, a live preview of
   lines as they are produced, and a **style rank** that climbs from D to SSS.
 - The CLI uses the same core as the GUI.
-- Internet is only used when *you* download a model. There are no update checks, no
-  telemetry and no web fonts.
+- Internet is only used when *you* download a model or click *Check for updates*.
+  Nothing checks automatically, and there is no telemetry and no web fonts.
 
 ---
 
@@ -77,6 +77,22 @@ large-v3-turbo was trained without translation data. With the translate task it 
 just transcribes in the original language. If you select it for translation, the UI
 shows a warning and AutoSub9000 uses large-v3 or medium instead when one of them is
 installed.
+
+### Updating
+
+Open **⋯ → Check for updates…**. If a newer release is on
+[GitHub Releases](https://github.com/divinegigas/autosub9000/releases), you'll see
+what's new and can **Download & install**. The new AppImage's SHA-256 checksum is
+verified, then it replaces your current file in place, so menu entries keep working,
+and you can restart into it. Your settings and models are kept. Nothing happens unless
+you click.
+
+On the command line: `--check-update` or `--update`.
+
+**Publishing a release** (maintainers): bump `__version__` in `autosub/__init__.py`,
+add a section to `CHANGELOG.md` (it becomes the release notes shown in the app), then
+`git tag vX.Y.Z && git push origin vX.Y.Z`. The *Release* GitHub Actions workflow builds
+the AppImage and publishes it with its `.sha256` file.
 
 ### Models
 

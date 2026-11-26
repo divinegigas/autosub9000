@@ -9,7 +9,7 @@ from PySide6.QtCore import QByteArray, Qt, QTimer, QUrl, QVariantAnimation
 from PySide6.QtGui import QColor, QDesktopServices, QPixmap
 from PySide6.QtWidgets import (QCheckBox, QComboBox, QFileDialog, QFrame,
                                QGraphicsDropShadowEffect, QHBoxLayout, QListWidget,
-                               QListWidgetItem, QMainWindow, QMessageBox, QProgressBar,
+                               QListWidgetItem, QMainWindow, QMenu, QMessageBox, QProgressBar,
                                QPushButton, QScrollArea, QSizePolicy, QVBoxLayout, QWidget)
 
 from .. import config
@@ -166,6 +166,23 @@ class MainWindow(QMainWindow):
         self.theme_btn.setToolTip("Toggle light / dark theme")
         self.theme_btn.clicked.connect(self.toggle_theme)
         lay.addWidget(self.theme_btn)
+        self.menu_btn = button("⋯", "ghost")
+        self.menu_btn.setToolTip("Options")
+        self.menu_btn.setFixedWidth(44)
+        f = self.menu_btn.font()
+        f.setPixelSize(20)
+        self.menu_btn.setFont(f)
+        menu = QMenu(self.menu_btn)
+        menu.addAction("Check for updates…", self.open_updates)
+        menu.addSeparator()
+        menu.addAction("Model Manager…", self.open_models)
+        menu.addAction("Open models folder", self._open_models_folder)
+        menu.addAction("Toggle light / dark theme", self.toggle_theme)
+        menu.addSeparator()
+        menu.addAction("About AutoSub9000", self._about)
+        self.menu_btn.clicked.connect(
+            lambda: menu.exec(self.menu_btn.mapToGlobal(self.menu_btn.rect().bottomLeft())))
+        lay.addWidget(self.menu_btn)
         return h
 
     # =========================================================== build: input
@@ -497,7 +514,7 @@ class MainWindow(QMainWindow):
                                  f"{n_wait} video{'s' if n_wait != 1 else ''} ready")
         for w in (self.lang, self.tr_model, self.translate, self.keep, self.fmt, self.out_btn,
                   self.out_reset, self.save_srt, self.burn, self.review, self.device,
-                  self.q_remove, self.q_clear, self.models_btn):
+                  self.q_remove, self.q_clear, self.models_btn, self.menu_btn):
             w.setEnabled(not running)
 
     def _log_toggled(self, on: bool):
@@ -783,6 +800,25 @@ class MainWindow(QMainWindow):
             QDesktopServices.openUrl(QUrl.fromLocalFile(str(out)))
 
     # =========================================================== dialogs
+    def open_updates(self):
+        from .update_dialog import UpdateDialog
+        UpdateDialog(self).exec()
+
+    def _open_models_folder(self):
+        d = config.models_dir()
+        d.mkdir(parents=True, exist_ok=True)
+        QDesktopServices.openUrl(QUrl.fromLocalFile(str(d)))
+
+    def _about(self):
+        from .. import __version__
+        from ..core import updater
+        QMessageBox.about(
+            self, "About AutoSub9000",
+            f"<h3>AutoSub9000 {__version__}</h3>"
+            "<p>Offline subtitles with whisper.cpp, ffmpeg and Qt.</p>"
+            "<p>Goes online only when you download a model or check for updates.</p>"
+            f"<p><a href='{updater.RELEASES_PAGE}'>{updater.RELEASES_PAGE}</a></p>")
+
     def open_models(self):
         from .model_manager import ModelManager
         dlg = ModelManager(self)

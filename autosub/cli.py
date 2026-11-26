@@ -47,6 +47,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--download-model", nargs="+", metavar="NAME", help="download model(s) and exit")
     p.add_argument("--list-languages", action="store_true", help="list language codes and exit")
     p.add_argument("--check-gpu", action="store_true", help="report Vulkan/GPU detection and exit")
+    p.add_argument("--check-update", action="store_true", help="check GitHub for a newer version and exit")
+    p.add_argument("--update", action="store_true", help="download and install the latest AppImage")
     p.add_argument("--install-desktop", action="store_true",
                    help="add AutoSub9000 to the application menu (for the AppImage)")
     p.add_argument("--uninstall-desktop", action="store_true", help="remove the application menu entry")
@@ -180,6 +182,34 @@ def cmd_desktop(install: bool) -> int:
     return 0
 
 
+def cmd_update(install: bool) -> int:
+    from . import __version__
+    from .core import updater
+    rel = updater.check()
+    if rel is None:
+        print(f"You have {__version__}. No releases have been published yet.")
+        return 0
+    if not rel.is_newer:
+        print(f"You're up to date ({__version__}).")
+        return 0
+    print(f"Version {rel.version} is available (you have {__version__}): {rel.page_url}")
+    if not install:
+        print("Run with --update to install it.")
+        return 0
+    last = [0.0]
+
+    def prog(done, total):
+        now = time.monotonic()
+        if now - last[0] > 0.3 or done >= total:
+            last[0] = now
+            sys.stderr.write(f"\r\033[K  downloading {done / max(1, total) * 100:5.1f}%  "
+                             f"{done / 1e6:,.0f}/{total / 1e6:,.0f} MB")
+    path = updater.install(rel, prog)
+    sys.stderr.write("\n")
+    print(f"Installed {rel.version} → {path}. Restart AutoSub9000 to use it.")
+    return 0
+
+
 def run_jobs(args) -> int:
     settings = config.Settings.load()
     tmodel = args.model or settings.transcribe_model or models.DEFAULT_TRANSCRIBE
@@ -249,6 +279,8 @@ def main(argv: list[str] | None = None) -> int:
             return cmd_download(args.download_model)
         if args.check_gpu:
             return cmd_check_gpu()
+        if args.check_update or args.update:
+            return cmd_update(args.update)
         if args.install_desktop or args.uninstall_desktop:
             return cmd_desktop(args.install_desktop)
         if not args.input:

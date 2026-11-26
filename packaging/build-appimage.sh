@@ -202,4 +202,5 @@ ARCH=x86_64 SOURCE_DATE_EPOCH="${SOURCE_DATE_EPOCH:-$(git -C "$ROOT" log -1 --fo
     "$TOOL" --appimage-extract-and-run --no-appstream --runtime-file "$RUNTIME" \
     --comp zstd "$APPDIR" "$OUT"
 ln -sf "$(basename "$OUT")" "$DIST/AutoSub9000-x86_64.AppImage"
+(cd "$DIST" && sha256sum "$(basename "$OUT")" > "$(basename "$OUT").sha256")
 say "Done: $OUT ($(du -h "$OUT" | cut -f1))"

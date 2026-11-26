@@ -1,0 +1,66 @@
+# Builds the AppImage and publishes a GitHub Release when a version tag is pushed:
+#   git tag v1.1.0 && git push origin v1.1.0
+# The app's "Check for updates" reads these releases.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  appimage:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check that the tag matches the app version
+        run: |
+          app="$(sed -n 's/^__version__ = "\(.*\)"/\1/p' autosub/__init__.py)"
+          tag="${GITHUB_REF_NAME#v}"
+          if [ "$app" != "$tag" ]; then
+            echo "::error::tag $GITHUB_REF_NAME does not match __version__ $app"; exit 1
+          fi
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake make gcc g++ glslc libvulkan-dev spirv-headers \
+                                  patchelf curl xz-utils file git
+
+      - uses: actions/cache@v4
+        with:
+          path: build/downloads
+          key: downloads-${{ hashFiles('packaging/build-appimage.sh') }}
+
+      # BtbN replaces its static ffmpeg builds regularly, so CI takes the current
+      # build and records its hash in the release notes instead of a fixed pin.
+      - name: Fetch static ffmpeg
+        run: |
+          mkdir -p build/ffmpeg
+          curl -fL --retry 4 -o build/ffmpeg/ffmpeg.tar.xz \
+            https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
+          echo "FFMPEG_SHA=$(sha256sum build/ffmpeg/ffmpeg.tar.xz | cut -d' ' -f1)" >> "$GITHUB_ENV"
+
+      - name: Build AppImage
+        run: FFMPEG_TARBALL="$PWD/build/ffmpeg/ffmpeg.tar.xz" packaging/build-appimage.sh
+
+      - name: Release notes
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          awk -v v="$v" '$0 ~ "^## "v"( |$)" {f=1; next} /^## / && f {exit} f' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "AutoSub9000 $v" > notes.md
+          printf '\n---\nInstall: download the AppImage, `chmod +x` it and run it. Existing installs: ⋯ → *Check for updates…*\n\nstatic ffmpeg sha256: `%s`\n' "$FFMPEG_SHA" >> notes.md
+          cat notes.md
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/AutoSub9000-$v-x86_64.AppImage" \
+            "dist/AutoSub9000-$v-x86_64.AppImage.sha256" \
+            --title "AutoSub9000 $v" --notes-file notes.md
